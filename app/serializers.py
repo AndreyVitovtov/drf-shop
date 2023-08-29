@@ -1,12 +1,20 @@
-from rest_framework.serializers import ModelSerializer, IntegerField
+from rest_framework.serializers import ModelSerializer, IntegerField, PrimaryKeyRelatedField
 
 from . import models
 
 
+class SerializedCategory(ModelSerializer):
+    class Meta:
+        model = models.Category
+        fields = '__all__'
+
+
 class SerializedProduct(ModelSerializer):
+    category = SerializedCategory(read_only=True)
+
     class Meta:
         model = models.Product
-        fields = ['id', 'title', 'price', 'image', 'description']
+        fields = ['id', 'title', 'price', 'image', 'description', 'category']
 
 
 class SerializedCart(ModelSerializer):

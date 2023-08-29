@@ -2,6 +2,8 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 
 from . import models
 from . import serializers
@@ -9,7 +11,7 @@ from . import serializers
 
 # Create your views here.
 class Product(APIView):
-    def get(self, request, id=None):
+    def get(self, request, id=None, category_title=None):
         if id:
             try:
                 product = models.Product.objects.get(id=id)
@@ -17,6 +19,11 @@ class Product(APIView):
                 return Response(serialized_product.data, status=status.HTTP_200_OK)
             except:
                 return Response({"msg": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+        elif category_title:
+            category = models.Category.objects.get(title=category_title)
+            products = models.Product.objects.get(category=category)
+            serialized_products = serializers.SerializedProduct(products)
+            return Response(serialized_products.data, status=status.HTTP_200_OK)
         else:
             title = request.query_params.get('title')
             min_price = request.query_params.get('min_price')
@@ -91,8 +98,8 @@ class Manager(APIView):
 class Cart(APIView):
     def get(self, request, customer_id):
         cart_items = models.Cart.objects.filter(customer_id=customer_id)
-        serializer = serializers.SerializedCart(cart_items, many=True)
-        return Response({"cart": serializer.data}, status=status.HTTP_200_OK)
+        serialized_cart = serializers.SerializedCart(cart_items, many=True)
+        return Response({"cart": serialized_cart.data}, status=status.HTTP_200_OK)
 
 
 class DeliveryCrew(APIView):
@@ -106,3 +113,22 @@ class DeliveryCrew(APIView):
             delivery_crew = delivery_crew.filter(surname__icontains=surname)
         serialized_delivery_crew = serializers.SerializedDeliveryCrew(delivery_crew, many=True)
         return Response(serialized_delivery_crew.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def category(request):
+    match request.method:
+        case 'GET':
+            categories = models.Category.objects.all()
+            serialized_category = serializers.SerializedCategory(categories, many=True)
+            return Response(serialized_category.data, status=status.HTTP_200_OK)
+        case 'POST':
+            serialized_category = serializers.SerializedCategory(data=request.data)
+            if serialized_category.is_valid():
+                serialized_category.save()
+                category = models.Category.objects.all()
+                serialized_category = serializers.SerializedCategory(category, many=True)
+                return Response(serialized_category.data, status=status.HTTP_200_OK)
+            else:
+                return Response({"msg": "Category not added"}, status=status.HTTP_400_BAD_REQUEST)
